@@ -113,7 +113,7 @@
           </div>
           <div class="context-footer">
             <div><span>CONTEXT</span><strong id="contextSummary">0 materials · this session only</strong></div>
-            <span class="codex-light" id="codexLight" title="Codex connection"></span>
+            <span class="ai-light" id="aiLight" title="ChatGPT connection"></span>
           </div>
         </aside>
       </main>
@@ -160,7 +160,7 @@
         <button type="button" class="dialog-close" id="closeAccountButton" aria-label="Close">×</button>
         <span class="eyebrow">AI connection</span>
         <h2 id="accountTitle">Connect your ChatGPT account</h2>
-        <p class="account-intro" id="accountIntro">Study Companion uses the official Codex sign-in on this Mac for screen understanding and tutoring.</p>
+        <p class="account-intro" id="accountIntro">Continue with ChatGPT to use your own plan for screen understanding and tutoring.</p>
 
         <div class="account-status-card" id="accountStatusCard">
           <div class="chatgpt-mark" aria-hidden="true">◎</div>
@@ -179,9 +179,10 @@
           </div>
         </div>
 
-        <p class="shared-login-note">This app uses the Codex login shared on this Mac. Signing out here also signs the Codex CLI out; it does not sign you out of the ChatGPT website or erase your course data.</p>
+        <p class="shared-login-note">This connection belongs only to Study Companion. OAuth credentials are encrypted with macOS secure storage, and your password is never shared with the app.</p>
         <div class="dialog-actions account-actions">
           <button class="button quiet" id="refreshAccountButton" type="button">Refresh</button>
+          <button class="button quiet" id="manageUsageButton" type="button">Manage usage</button>
           <button class="button quiet" id="cancelSignInButton" type="button">Cancel sign-in</button>
           <button class="danger-button visible" id="signOutButton" type="button">Sign out</button>
           <button class="button primary" id="accountPrimaryButton" type="button">Continue with ChatGPT</button>

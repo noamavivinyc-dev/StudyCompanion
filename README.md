@@ -4,6 +4,8 @@ Study Companion is a local-first Mac and iPad study copilot. Share an iPad scree
 
 The project is an early working prototype. It is designed for technical coursework—math, physics, economics, chemistry, and related subjects—but can use any readable course material.
 
+> Upgrading from 0.1? Version 0.2 removes the external Codex-runtime dependency. Replace the old app, open the account panel, and connect ChatGPT directly inside Study Companion.
+
 ## What already works
 
 - Live iPad screen capture over the local network, at roughly one frame per second
@@ -13,20 +15,22 @@ The project is an early working prototype. It is designed for technical coursewo
 - Hint-first tutoring, step-by-step work checking, explicit answer/walkthrough requests, and short spoken replies
 - Read-only visual guidance over the captured page: highlights, boxes, arrows, numbered steps, and ghosted next-step sketches
 - Separate courses with dated syllabi, slides, assignments, rubrics, notes, study history, and optional spaced-review memory
-- A visible ChatGPT/Codex account panel with connection status, browser sign-in, refresh, and guarded sign-out
+- App-specific **Continue with ChatGPT** sign-in, visible account state, encrypted local credentials, usage settings, and guarded sign-out
 
 ## Exactly what powers the AI
 
-Study Companion does not silently use an API key bundled into the app. It uses the official **Codex runtime installed on the Mac** and the account connected to that runtime.
+Study Companion does not ship a developer-owned API key and does not require Codex, the ChatGPT desktop app, or a CLI. It uses OpenAI's official **Sign in with ChatGPT** flow for open-source local apps. Each installation registers Study Companion as its own OAuth client, and each user connects their own eligible ChatGPT account.
 
 The account button in the app header always shows the current state:
 
-- **ChatGPT connected** means Codex reports `Logged in using ChatGPT`. Tutor requests use that ChatGPT-connected Codex session, subject to the account's plan, access, and usage limits.
-- **API key connected** means the user's Codex installation was configured with an API key instead. The app labels this explicitly.
-- **Connect ChatGPT** means no usable Codex login was found. Clicking it runs the official Codex browser sign-in flow.
-- **Set up AI** means no Codex executable was found. Install the ChatGPT desktop app or Codex CLI, then reopen Study Companion.
+- **ChatGPT connected** means the named account granted Study Companion direct token-sharing permission. Tutor requests use that account's ChatGPT plan and limits.
+- **Enable ChatGPT plan** means the identity is signed in but direct plan access was not granted. Click **Continue with ChatGPT** to consent.
+- **Reconnect ChatGPT** means the app-specific connection expired or was revoked.
+- **Connect ChatGPT** means this copy of Study Companion has no connected account yet.
 
-This first version delegates authentication to Codex rather than handling OAuth tokens itself. Study Companion never receives a ChatGPT password, does not read ChatGPT conversations, and does not contain a developer-owned API key. **Sign out** runs the Codex logout command, so it also disconnects other tools using the same Codex CLI login on that Mac. It does not sign the browser out of chatgpt.com and does not delete Study Companion's local course data.
+The password is entered only on OpenAI's site. OAuth credentials are kept in the main process, encrypted with Electron `safeStorage` backed by macOS secure storage, and never exposed to the renderer. **Sign out** revokes and removes only Study Companion's connection; it does not disconnect Codex, sign the browser out of chatgpt.com, or delete course data.
+
+Direct inference uses the account's available model catalog and the Responses API with `store: false` and `stream: true`. Each request contains only the current question, current screenshot when present, a short recent transcript, and retrieved course excerpts. Sign in with ChatGPT is currently available to eligible ChatGPT accounts and remains subject to OpenAI's plan, region, and usage limits.
 
 ## Privacy and data flow
 
@@ -34,7 +38,7 @@ This first version delegates authentication to Codex rather than handling OAuth 
 | --- | --- |
 | Live iPad-to-Mac frame transport, microphone audio, speech transcription, spoken reply generation, imported course files, session history, and optional course memory | The saved question screenshot, the question, a short recent transcript, and only the retrieved course excerpts relevant to the question |
 
-Frames travel directly from iPad to Mac over the local network. The Mac keeps the latest live frame in memory. When the user asks a question, the app saves that frame in the local session and supplies it to the authenticated Codex runtime.
+Frames travel directly from iPad to Mac over the local network. The Mac keeps the latest live frame in memory. When the user asks a question, the app saves that frame in the local session and sends it through the user's app-specific ChatGPT connection.
 
 Imported files are read and copied into Study Companion's local data model; the originals are not edited. The teaching overlay exists only in the Mac app and never writes into Notability or the shared screen.
 
@@ -52,16 +56,10 @@ Deleting a course removes its copied context, messages, and review queue. Sessio
 
 - macOS on Apple silicon or Intel
 - Node.js 22 or newer for development
-- The ChatGPT desktop app with Codex, or a working Codex CLI installation
+- An eligible ChatGPT account for AI tutoring; no API key, ChatGPT desktop app, or Codex installation is required
 - Microphone permission for spoken questions
 - Screen Recording permission only when using **Use Mac screen**
 - Mac and iPad on the same local network for live iPad capture
-
-If Codex is installed in a non-standard location, launch with:
-
-```bash
-STUDY_CODEX_PATH=/absolute/path/to/codex npm start
-```
 
 ### iPad
 
@@ -72,6 +70,12 @@ STUDY_CODEX_PATH=/absolute/path/to/codex npm start
 The current iPad companion uses the iPadOS ScreenCaptureKit content-sharing picker, so its deployment target is intentionally iPadOS 27.
 
 ## Install and run the Mac app
+
+### Ready-to-run download
+
+Open [GitHub Releases](https://github.com/noamavivinyc-dev/StudyCompanion/releases), download the ZIP matching the Mac (`arm64` for Apple silicon, `x64` for Intel), unzip it, and move **Study Companion** to Applications. This prototype is not notarized, so the first launch may require right-clicking the app and choosing **Open**. If macOS still blocks it, follow the exact Gatekeeper steps in the release notes; never bypass security for a file downloaded from anywhere except this repository's Releases page.
+
+### Run from source
 
 ```bash
 git clone https://github.com/noamavivinyc-dev/StudyCompanion.git
@@ -84,11 +88,13 @@ On first launch:
 
 1. Open the account button in the top bar.
 2. If it says **Connect ChatGPT**, click **Continue with ChatGPT** and finish the official sign-in in the browser.
-3. Return to Study Companion. The button should now say **ChatGPT connected**.
+3. Approve Study Companion's requested plan access, then return to the app. The button should say **ChatGPT connected** and the panel should show the selected account.
 4. If it does not update, open the account panel and click **Refresh**.
 5. Create a course, start a session, and either connect the iPad or click **Use Mac screen**.
 
 The first voice interaction downloads the local Whisper and Kokoro model files. That first request can take longer. Until Kokoro is ready, the app uses the built-in macOS voice so the reply is still spoken.
+
+For the full authentication flow, secure-storage behavior, and error recovery, see [`docs/CHATGPT-SIGN-IN.md`](docs/CHATGPT-SIGN-IN.md).
 
 ## Daily study workflow
 
@@ -141,6 +147,15 @@ npm run pack
 
 The unpacked development build is created under `dist/mac-arm64/` on Apple silicon or the matching architecture directory on Intel. The build is not notarized or Developer ID signed. On another Mac, the user may need to right-click the app and choose **Open** the first time. Production distribution should add signing, hardened runtime, notarization, and release packaging.
 
+Create distributable ZIPs with:
+
+```bash
+npm run dist:mac:arm64   # Apple silicon
+npm run dist:mac:x64     # Intel
+```
+
+Each distribution command performs a clean install for its target CPU first, which is required for native speech/image dependencies when cross-building on the other Mac architecture. Electron Builder omits `x64` from its default Intel filename; rename that ZIP to include `x64` before publishing it.
+
 ## Test
 
 ```bash
@@ -161,17 +176,17 @@ xcodebuild -project ipad/StudyCapture.xcodeproj \
 
 ## Troubleshooting
 
-### The account button says “Set up AI”
-
-Install the ChatGPT desktop app with Codex or install the Codex CLI, then fully quit and reopen Study Companion. For an unusual install location, set `STUDY_CODEX_PATH` as shown above.
-
 ### Browser sign-in finished but the app still says disconnected
 
-Open the account panel and click **Refresh**. From Terminal, `codex login status` should report the actual login method. If it does not, run `codex login`, finish the browser flow, and reopen the app.
+Return to Study Companion and click **Refresh**. If the panel says **Enable ChatGPT plan**, click **Continue with ChatGPT** once more and approve direct plan access. If OpenAI reports that the account is ineligible, use an eligible personal ChatGPT account or workspace and verify that the serving region and usage limits permit token sharing.
+
+### Secure credential storage is unavailable
+
+Unlock the Mac login keychain, fully quit Study Companion, and reopen it. The app intentionally refuses to save OAuth credentials without OS-backed encryption.
 
 ### I do not want this Mac to keep using my account
 
-Open the account panel and click **Sign out**. Read the warning: this signs the shared Codex CLI out for other local tools too. It leaves the ChatGPT website session and Study Companion's local data alone.
+Open the account panel and click **Sign out**. This revokes Study Companion's app connection and removes its encrypted local credentials. It leaves the ChatGPT website session, Codex, and Study Companion's local course data alone.
 
 ### The iPad cannot reach the Mac
 
@@ -204,7 +219,8 @@ Open Course library and correct the material type and date. Remove superseded ma
 main.js                         Electron main process and IPC
 preload.js                      Narrow renderer bridge
 renderer/                       Mac app interface
-src/codex-tutor.js              Codex discovery, account state, and vision tutor
+src/chatgpt-tutor.js            ChatGPT account state, direct vision inference, and tutor policy
+src/credential-encryption.js   macOS-backed credential encryption adapter
 src/frame-server.js             Authenticated local iPad frame receiver
 src/asr-service.js              Local speech recognition
 src/voice-service.js            Local speech synthesis and fallback
@@ -215,15 +231,18 @@ src/syllabus.js                 Syllabus event extraction
 schemas/tutor-response.schema.json
 ipad/                           Native Study Capture app and Xcode project
 tests/                          Node test suite
+vendor/siwc-local/              OpenAI Sign in with ChatGPT local SDK + notices
 ```
 
 See [`docs/LEARNING-SCIENCE.md`](docs/LEARNING-SCIENCE.md) for the evidence-to-product decisions behind the tutoring policy, hint ladder, retrieval practice, and spaced review behavior.
+
+The account implementation follows OpenAI's [Sign in with ChatGPT integration guide](https://developers.openai.com/cookbook/articles/sign-in-with-chatgpt), [local-app sign-in specification](https://developers.openai.com/siwc/token-sharing-open-source/sign-in), and [models and inference requirements](https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference). The vendored local SDK comes from OpenAI's [Sign in with ChatGPT DevKit](https://github.com/openai/sign-in-with-chatgpt-devkit); its noncommercial license, modification notice, and third-party notices are included under `vendor/siwc-local/`.
 
 ## Current limitations
 
 - macOS and iPad only
 - The iPad companion requires iPadOS 27
-- Authentication is shared with the local Codex CLI rather than stored as an app-specific connection
+- Sign in with ChatGPT is a preview and is limited to eligible accounts, supported regions, and the user's plan limits
 - Live frames use authenticated but unencrypted HTTP on the local network
 - The Mac build is not signed or notarized
 - Handwriting and overlay placement depend on image quality and model confidence

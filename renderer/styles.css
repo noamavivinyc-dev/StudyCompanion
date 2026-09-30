@@ -197,8 +197,8 @@ textarea::placeholder { color: #9c9991; }
 .context-footer > div { display: grid; gap: 3px; }
 .context-footer span { color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .12em; }
 .context-footer strong { font-size: 9px; font-weight: 500; }
-.codex-light { width: 8px; height: 8px; border-radius: 50%; background: #aaa49a; }
-.codex-light.available { background: var(--green); box-shadow: 0 0 0 3px rgba(95,139,76,.12); }
+.ai-light { width: 8px; height: 8px; border-radius: 50%; background: #aaa49a; }
+.ai-light.available { background: var(--green); box-shadow: 0 0 0 3px rgba(95,139,76,.12); }
 
 dialog { width: 390px; padding: 0; border: 0; border-radius: 12px; background: var(--paper-bright); box-shadow: 0 25px 80px rgba(20,20,20,.3); }
 dialog::backdrop { background: rgba(28,31,31,.42); backdrop-filter: blur(3px); }
@@ -273,6 +273,7 @@ dialog input:focus { border-color: var(--blue); }
 .account-actions { margin-top: 0; }
 .account-actions .danger-button { margin-right: 0; padding: 0 8px; }
 .account-actions #refreshAccountButton { margin-right: auto; }
+.account-actions #manageUsageButton:not(.visible) { display: none; }
 .account-actions #cancelSignInButton:not(.visible) { display: none; }
 .hidden { display: none !important; }
 

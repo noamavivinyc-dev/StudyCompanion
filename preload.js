@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld("study", {
   signIn: () => ipcRenderer.invoke("auth:sign-in"),
   cancelSignIn: () => ipcRenderer.invoke("auth:cancel-sign-in"),
   signOut: () => ipcRenderer.invoke("auth:sign-out"),
+  manageUsage: () => ipcRenderer.invoke("auth:manage-usage"),
   createCourse: (input) => ipcRenderer.invoke("course:create", input),
   selectCourse: (id) => ipcRenderer.invoke("course:select", id),
   updateCourse: (id, patch) => ipcRenderer.invoke("course:update", id, patch),

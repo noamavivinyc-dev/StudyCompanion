@@ -40,7 +40,7 @@ const els = {
   handsFreeToggle: $("#handsFreeToggle"),
   muteButton: $("#muteButton"),
   contextSummary: $("#contextSummary"),
-  codexLight: $("#codexLight"),
+  aiLight: $("#aiLight"),
   courseDialog: $("#courseDialog"),
   libraryDialog: $("#libraryDialog"),
   libraryTitle: $("#libraryTitle"),
@@ -118,8 +118,8 @@ function render() {
   els.guidanceButton.textContent = state.settings.showGuidance ? "Guidance on" : "Guidance off";
   els.annotationLayer.classList.toggle("guidance-hidden", !state.settings.showGuidance);
   renderAccountState();
-  els.codexLight.classList.toggle("available", state.codex.authenticated);
-  els.codexLight.title = state.codex.authenticated ? `AI connected using ${state.codex.method || "Codex"}` : "ChatGPT account not connected";
+  els.aiLight.classList.toggle("available", state.chatgpt.authenticated);
+  els.aiLight.title = state.chatgpt.authenticated ? "Using your ChatGPT plan" : "ChatGPT account not connected";
   els.contextSummary.textContent = `${course?.materialCount || 0} material${course?.materialCount === 1 ? "" : "s"} · ${state.settings.persistCourseMemory ? `${course?.memoryCount || 0} saved memories` : "this session only"}`;
   updateReceiver(state.receiver);
   renderFrame(state.frame);
@@ -128,51 +128,49 @@ function render() {
   updateVoiceUI();
   if (els.libraryDialog.open) renderLibrary();
   if (els.accountDialog.open) renderAccountDialog();
-  if (!promptedForAccount && ["disconnected", "unavailable"].includes(state.codex.state)) {
+  if (!promptedForAccount && ["disconnected", "reauth_required", "sharing_disabled"].includes(state.chatgpt.state)) {
     promptedForAccount = true;
     setTimeout(openAccountDialog, 250);
   }
 }
 
 function renderAccountState() {
-  const auth = state.codex || {};
+  const auth = state.chatgpt || {};
   const labels = {
     checking: "Checking ChatGPT…",
     connecting: "Signing in…",
     disconnecting: "Signing out…",
     disconnected: "Connect ChatGPT",
-    unavailable: "Set up AI",
+    reauth_required: "Reconnect ChatGPT",
+    sharing_disabled: "Enable ChatGPT plan",
   };
   els.accountButtonLabel.textContent = auth.authenticated
-    ? `${auth.method || "Codex"} connected`
+    ? "ChatGPT connected"
     : labels[auth.state] || "Connect ChatGPT";
   els.accountButton.className = `account-button ${auth.authenticated ? "connected" : auth.state || "disconnected"}`;
 }
 
 function renderAccountDialog() {
-  const auth = state.codex || {};
+  const auth = state.chatgpt || {};
   const connected = Boolean(auth.authenticated);
   const busy = ["checking", "connecting", "disconnecting"].includes(auth.state);
-  const unavailable = auth.state === "unavailable";
-  $("#accountTitle").textContent = connected ? "Your AI connection is ready" : unavailable ? "Install the AI runtime" : "Connect your ChatGPT account";
+  $("#accountTitle").textContent = connected ? "Your AI connection is ready" : auth.state === "sharing_disabled" ? "Enable your ChatGPT plan" : auth.state === "reauth_required" ? "Reconnect ChatGPT" : "Connect your ChatGPT account";
   $("#accountIntro").textContent = connected
-    ? auth.method === "ChatGPT"
-      ? "Study Companion is using your ChatGPT-connected Codex session on this Mac."
-      : "Study Companion is using the API-key connection configured in Codex on this Mac."
-    : unavailable
-      ? "Study Companion needs the ChatGPT desktop app or the Codex CLI on this Mac before it can read your screen and tutor you."
-      : "A browser window will open for the official Codex sign-in. Study Companion never sees or stores your password.";
+    ? "Study Companion sends tutoring requests through the ChatGPT plan connected specifically to this app."
+    : "Your browser will open for the official Continue with ChatGPT flow. No Codex install or API key is required.";
   $("#accountStatusTitle").textContent = connected
-    ? auth.method === "ChatGPT" ? "ChatGPT account" : "Codex account"
-    : auth.state === "connecting" ? "Finish in your browser" : unavailable ? "Codex runtime not found" : auth.state === "checking" ? "Checking connection…" : "Not connected";
+    ? auth.email || auth.name || "ChatGPT account"
+    : auth.state === "connecting" ? "Finish in your browser" : auth.state === "sharing_disabled" ? "Permission needed" : auth.state === "reauth_required" ? "Connection expired" : auth.state === "checking" ? "Checking connection…" : "Not connected";
   $("#accountStatusDetail").textContent = auth.detail || "Connect before asking the tutor.";
   $("#accountStatePill").textContent = connected ? "Connected" : auth.state === "connecting" ? "Waiting" : auth.state === "checking" ? "Checking" : auth.state === "disconnecting" ? "Signing out" : "Not connected";
   $("#accountStatusCard").className = `account-status-card ${connected ? "connected" : auth.state || "disconnected"}`;
-  $("#accountPrimaryButton").textContent = connected ? "Done" : unavailable ? "Runtime required" : "Continue with ChatGPT";
-  $("#accountPrimaryButton").disabled = busy || unavailable;
+  $("#accountPrimaryButton").textContent = connected ? "Done" : "Continue with ChatGPT";
+  $("#accountPrimaryButton").disabled = busy;
   $("#accountPrimaryButton").dataset.action = connected ? "done" : "sign-in";
   $("#signOutButton").classList.toggle("visible", connected);
   $("#signOutButton").disabled = busy;
+  $("#manageUsageButton").classList.toggle("visible", connected);
+  $("#manageUsageButton").disabled = busy;
   $("#cancelSignInButton").classList.toggle("visible", auth.state === "connecting");
   $("#refreshAccountButton").classList.toggle("hidden", busy);
 }
@@ -366,7 +364,7 @@ async function sendQuestion() {
     if (!state?.activeSession) showToast("Start a study session first.");
     return;
   }
-  if (!state.codex.authenticated) {
+  if (!state.chatgpt.authenticated) {
     openAccountDialog();
     showToast("Connect your ChatGPT account before asking the tutor.");
     return;
@@ -388,7 +386,7 @@ function resizeInput() {
 
 async function startRecording() {
   if (recording || !state?.activeSession || state?.tutorState === "thinking" || state?.voiceState === "speaking" || state?.voiceState === "loading" || state?.asrState === "transcribing") return;
-  if (!state.codex.authenticated) {
+  if (!state.chatgpt.authenticated) {
     openAccountDialog();
     showToast("Connect ChatGPT before asking by voice.");
     return;
@@ -499,10 +497,11 @@ $("#accountPrimaryButton").addEventListener("click", async () => {
 $("#refreshAccountButton").addEventListener("click", async () => {
   try { state = await window.study.refreshAuth(); render(); } catch (error) { showToast(error); }
 });
+$("#manageUsageButton").addEventListener("click", () => window.study.manageUsage().catch(showToast));
 $("#cancelSignInButton").addEventListener("click", () => window.study.cancelSignIn());
 $("#signOutButton").addEventListener("click", async () => {
   els.accountDialog.close();
-  const accepted = await confirmAction("Sign out of Codex on this Mac?", "Study Companion and other tools using this shared Codex login will stop using this account. Your ChatGPT website session and local course data are not removed.", "Sign out");
+  const accepted = await confirmAction("Sign out of Study Companion?", "This removes Study Companion's encrypted ChatGPT connection from this Mac. It does not sign you out of chatgpt.com, affect Codex, or erase course data.", "Sign out");
   if (!accepted) { openAccountDialog(); return; }
   try { state = await window.study.signOut(); render(); openAccountDialog(); } catch (error) { showToast(error); openAccountDialog(); }
 });

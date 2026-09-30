@@ -1,6 +1,6 @@
 {
   "name": "study-companion",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "author": "Noam Avivi",
   "description": "Local-first iPad-aware study assistant for macOS",
@@ -19,9 +19,12 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test tests/*.test.js",
-    "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --mac"
+    "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --mac",
+    "dist:mac:arm64": "npm ci --cpu=arm64 --os=darwin && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac zip --arm64",
+    "dist:mac:x64": "npm ci --cpu=x64 --os=darwin && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac zip --x64"
   },
   "dependencies": {
+    "@siwc/local": "file:vendor/siwc-local",
     "@huggingface/transformers": "^3.8.1",
     "kokoro-js": "^1.2.1"
   },

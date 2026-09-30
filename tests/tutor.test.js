@@ -1,17 +1,28 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { cleanResult, parseAuthStatus, tutorPrompt } = require("../src/codex-tutor");
+const { authStatus, cleanResult, selectModel, tutorPrompt } = require("../src/chatgpt-tutor");
 
-test("Codex authentication status is safe and explicit", () => {
-  assert.deepEqual(parseAuthStatus("Logged in using ChatGPT"), {
+test("ChatGPT authentication status is app-specific and explicit", () => {
+  assert.deepEqual(authStatus({ status: "connected", sharing: true, profileId: "one", identity: { email: "student@example.com" } }), {
     available: true,
     authenticated: true,
+    signedIn: true,
+    sharing: true,
     state: "connected",
-    method: "ChatGPT",
-    detail: "Connected using ChatGPT.",
+    method: "ChatGPT plan",
+    name: null,
+    email: "student@example.com",
+    profileId: "one",
+    detail: "Using student@example.com and its plan.",
+    errorCode: null,
   });
-  assert.equal(parseAuthStatus("Not logged in").authenticated, false);
-  assert.equal(parseAuthStatus("", false).state, "unavailable");
+  assert.equal(authStatus({ status: "disconnected", sharing: false }).authenticated, false);
+  assert.equal(authStatus({ status: "connected", sharing: false }).state, "sharing_disabled");
+});
+
+test("model selection prefers the vision tutor model and falls back to the catalog", () => {
+  assert.equal(selectModel([{ slug: "other" }, { slug: "gpt-5.6-sol" }]).slug, "gpt-5.6-sol");
+  assert.equal(selectModel([{ slug: "available-model" }]).slug, "available-model");
 });
 
 test("tutor prompt is hint-first and isolates screen content as data", () => {

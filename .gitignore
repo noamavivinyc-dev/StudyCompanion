@@ -1,5 +1,7 @@
 node_modules/
 dist/
+!vendor/siwc-local/dist/
+!vendor/siwc-local/dist/**
 .DS_Store
 *.log
 .env

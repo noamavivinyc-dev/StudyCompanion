@@ -1,10 +1,9 @@
 const path = require("path");
-const fs = require("fs");
-const crypto = require("crypto");
-const { app, BrowserWindow, ipcMain, dialog, desktopCapturer, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, desktopCapturer, session, safeStorage, shell } = require("electron");
 const { StudyStore } = require("./src/store");
 const { FrameServer } = require("./src/frame-server");
-const { CodexTutor } = require("./src/codex-tutor");
+const { ChatGPTTutor } = require("./src/chatgpt-tutor");
+const { createCredentialEncryption } = require("./src/credential-encryption");
 const { VoiceService } = require("./src/voice-service");
 const { AsrService } = require("./src/asr-service");
 const { readMaterial } = require("./src/materials");
@@ -15,6 +14,7 @@ let frameServer;
 let tutor;
 let voice;
 let asr;
+let chatgptUsageUrl = "https://chatgpt.com/settings/usage";
 let tutorState = "idle";
 let voiceState = "idle";
 let asrState = "idle";
@@ -39,7 +39,7 @@ function currentState() {
   return store.publicState({
     frame: framePayload(),
     receiver: frameServer.info(),
-    codex: tutor.status(),
+    chatgpt: tutor.status(),
     tutorState,
     voiceState,
     asrState,
@@ -83,6 +83,8 @@ function registerIpc() {
       broadcastState();
     }
   });
+
+  ipcMain.handle("auth:manage-usage", () => shell.openExternal(chatgptUsageUrl));
 
   ipcMain.handle("course:create", (_event, input) => {
     store.createCourse(input || {});
@@ -193,13 +195,11 @@ function registerIpc() {
     broadcastState();
 
     try {
-      const outputPath = path.join(app.getPath("userData"), "tutor-output", `${crypto.randomUUID()}.json`);
       const result = await tutor.ask({
         course,
         question,
         messages: previousMessages,
         imagePath,
-        outputPath,
         onStatus: (value) => {
           tutorState = value;
           send("tutor:state", value);
@@ -265,14 +265,23 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   const userData = app.getPath("userData");
-  const runtimeDir = path.join(userData, "runtime");
-  fs.mkdirSync(runtimeDir, { recursive: true });
-  const runtimeSchema = path.join(runtimeDir, "tutor-response.schema.json");
-  fs.copyFileSync(path.join(__dirname, "schemas", "tutor-response.schema.json"), runtimeSchema);
+  const { createChatGPT, CHATGPT_USAGE_URL } = await import("@siwc/local");
+  chatgptUsageUrl = CHATGPT_USAGE_URL;
   store = new StudyStore(userData);
-  // External CLIs cannot use a path inside Electron's app.asar archive as a
-  // working directory or schema file. Keep their runtime inputs on disk.
-  tutor = new CodexTutor({ appRoot: userData, schemaPath: runtimeSchema });
+  const chatgpt = createChatGPT({
+    appName: "Study Companion",
+    appId: "study-companion",
+    redirectPort: 0,
+    storageDir: path.join(userData, "chatgpt"),
+    credentialEncryption: createCredentialEncryption(safeStorage),
+    openBrowser: (url) => shell.openExternal(url),
+    sendHostId: true,
+  });
+  tutor = new ChatGPTTutor({
+    client: chatgpt,
+    schemaPath: path.join(__dirname, "schemas", "tutor-response.schema.json"),
+  });
+  tutor.setAuthListener(() => broadcastState());
   voice = new VoiceService({
     cacheDir: path.join(userData, "voice-cache"),
     onState: (value) => {
