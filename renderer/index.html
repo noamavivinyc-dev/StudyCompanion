@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Study Companion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="titlebar">
+        <div class="brand-lockup">
+          <span class="brand-mark">SC</span>
+          <div>
+            <strong>Study Companion</strong>
+            <span>local study desk</span>
+          </div>
+        </div>
+        <div class="session-controls">
+          <span class="privacy-pill"><i></i> Local session</span>
+          <button class="account-button" id="accountButton" aria-label="Open ChatGPT account settings">
+            <span class="account-dot"></span>
+            <span id="accountButtonLabel">Checking ChatGPT…</span>
+          </button>
+          <button class="button quiet" id="materialsButton">Course library</button>
+          <button class="button primary" id="sessionButton">Start session</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="course-rail">
+          <div class="section-heading">
+            <span>Courses</span>
+            <button class="new-course-button" id="newCourseButton" aria-label="Create course">＋ New</button>
+          </div>
+          <nav id="courseList" class="course-list" aria-label="Courses"></nav>
+          <div class="rail-footer">
+            <div class="setting-row">
+              <div><strong>Course memory</strong><span>Keep local summaries</span></div>
+              <label class="switch"><input id="memoryToggle" type="checkbox" /><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div><strong>Hands-free</strong><span>Listen between replies</span></div>
+              <label class="switch"><input id="handsFreeToggle" type="checkbox" /><span></span></label>
+            </div>
+          </div>
+        </aside>
+
+        <section class="desk">
+          <div class="desk-toolbar">
+            <div>
+              <span class="eyebrow">Live notebook</span>
+              <h1 id="courseTitle">Physics 201</h1>
+            </div>
+            <div class="source-controls">
+              <span class="voice-status-chip" id="voiceStatusChip"><i></i><span>Voice ready</span></span>
+              <span class="connection-badge" id="connectionBadge"><i></i><span>Waiting for iPad</span></span>
+              <button class="button quiet guidance-button" id="guidanceButton">Guidance on</button>
+              <button class="button quiet" id="captureMacButton">Use Mac screen</button>
+              <button class="button quiet sound-button" id="muteButton" aria-label="Mute spoken replies">Voice on</button>
+            </div>
+          </div>
+
+          <div class="screen-stage" id="screenStage">
+            <div class="paper-grid"></div>
+            <div class="frame-fit" id="frameFit">
+              <img id="screenImage" alt="Shared iPad screen" />
+              <div id="annotationLayer" class="annotation-layer" aria-hidden="true"></div>
+            </div>
+            <div class="empty-capture" id="emptyCapture">
+              <div class="empty-icon">
+                <span class="tablet-line"></span>
+                <span class="pencil-line"></span>
+              </div>
+              <h2>Your page will appear here</h2>
+              <p>Open Study Capture on your iPad, enter this Mac’s address and pairing code, then share your screen.</p>
+              <div class="pairing-card">
+                <div><span>MAC ADDRESS</span><strong id="pairingAddress">Finding address…</strong></div>
+                <div><span>PAIRING CODE</span><strong id="pairingToken">—</strong></div>
+              </div>
+              <button class="text-button" id="emptyMacButton">or use this Mac’s screen</button>
+            </div>
+            <div class="frame-meta" id="frameMeta"></div>
+          </div>
+
+          <div class="ask-bar">
+            <button class="mic-button" id="micButton" aria-label="Ask by voice"><span class="mic-glyph"></span></button>
+            <div class="ask-input-wrap">
+              <label for="questionInput" id="inputLabel">Ask about what’s on your screen</label>
+              <textarea id="questionInput" rows="1" placeholder="Check my work, explain this step, or give me a hint…"></textarea>
+            </div>
+            <button class="send-button" id="sendButton" aria-label="Send question">↑</button>
+          </div>
+          <div class="voice-caption" id="voiceCaption">Click the microphone to talk</div>
+        </section>
+
+        <aside class="tutor-panel">
+          <div class="tutor-header">
+            <div class="tutor-orb"><span></span></div>
+            <div><span class="eyebrow">Study assistant</span><strong id="tutorStatus">Ready when you are</strong></div>
+            <button class="icon-button" id="stopVoiceButton" aria-label="Stop speaking">■</button>
+          </div>
+          <div class="conversation" id="conversation">
+            <div class="welcome-card">
+              <span class="index">01</span>
+              <p>I’ll look at the page you’re working on and guide you from the first uncertain step. I’ll hint before I solve.</p>
+              <div class="prompt-chips">
+                <button data-prompt="Check my work and point out the first mistake.">Check my work</button>
+                <button data-prompt="Give me one hint for the next step.">Give me a hint</button>
+                <button data-prompt="Explain what this problem is asking.">Explain the problem</button>
+              </div>
+            </div>
+          </div>
+          <div class="context-footer">
+            <div><span>CONTEXT</span><strong id="contextSummary">0 materials · this session only</strong></div>
+            <span class="codex-light" id="codexLight" title="Codex connection"></span>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <dialog id="courseDialog">
+      <form method="dialog" id="courseForm">
+        <button type="button" class="dialog-close" id="closeCourseButton" aria-label="Close">×</button>
+        <span class="eyebrow" id="courseDialogEyebrow">New course</span>
+        <h2 id="courseDialogTitle">Give this context a home.</h2>
+        <label>Course name<input id="courseName" required placeholder="Electricity & Magnetism" /></label>
+        <label>Short name<input id="courseShortName" maxlength="18" placeholder="PHYS 202" /></label>
+        <div class="color-row" id="colorRow">
+          <button type="button" class="color-dot selected" data-color="#168aad" style="--dot:#168aad"></button>
+          <button type="button" class="color-dot" data-color="#ff6b35" style="--dot:#ff6b35"></button>
+          <button type="button" class="color-dot" data-color="#6a994e" style="--dot:#6a994e"></button>
+          <button type="button" class="color-dot" data-color="#9b5de5" style="--dot:#9b5de5"></button>
+          <button type="button" class="color-dot" data-color="#d62828" style="--dot:#d62828"></button>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="danger-button" id="deleteCourseButton">Delete course</button>
+          <button class="button primary dialog-submit" id="saveCourseButton" value="default">Create course</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="libraryDialog" class="library-dialog">
+      <section class="library-shell">
+        <button class="dialog-close" id="closeLibraryButton" aria-label="Close">×</button>
+        <div class="library-header">
+          <div><span class="eyebrow">Course context</span><h2 id="libraryTitle">Course library</h2><p>Materials stay local. Their dates help the tutor prefer the most current context.</p></div>
+          <div class="library-actions"><button class="button quiet" id="editCourseButton">Edit course</button><button class="button primary" id="addFilesButton">＋ Add files</button></div>
+        </div>
+        <div class="library-summary" id="librarySummary"></div>
+        <div class="library-sections">
+          <section><div class="list-heading"><strong>Materials</strong><span id="materialCountLabel"></span></div><div id="materialList" class="material-list"></div></section>
+          <aside><div class="list-heading"><strong>Course pulse</strong><span>from syllabi + review</span></div><div id="coursePulse" class="course-pulse"></div></aside>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="accountDialog" class="account-dialog">
+      <section class="account-shell">
+        <button type="button" class="dialog-close" id="closeAccountButton" aria-label="Close">×</button>
+        <span class="eyebrow">AI connection</span>
+        <h2 id="accountTitle">Connect your ChatGPT account</h2>
+        <p class="account-intro" id="accountIntro">Study Companion uses the official Codex sign-in on this Mac for screen understanding and tutoring.</p>
+
+        <div class="account-status-card" id="accountStatusCard">
+          <div class="chatgpt-mark" aria-hidden="true">◎</div>
+          <div><strong id="accountStatusTitle">Checking connection…</strong><span id="accountStatusDetail">This only takes a moment.</span></div>
+          <span class="account-state-pill" id="accountStatePill">Checking</span>
+        </div>
+
+        <div class="data-boundary">
+          <div>
+            <span class="boundary-icon local">L</span>
+            <p><strong>Stays on this Mac</strong><span>Voice transcription, spoken replies, course files, and saved study memory.</span></p>
+          </div>
+          <div>
+            <span class="boundary-icon sent">↑</span>
+            <p><strong>Sent when you ask</strong><span>Your current screenshot, question, and the relevant excerpts from this course.</span></p>
+          </div>
+        </div>
+
+        <p class="shared-login-note">This app uses the Codex login shared on this Mac. Signing out here also signs the Codex CLI out; it does not sign you out of the ChatGPT website or erase your course data.</p>
+        <div class="dialog-actions account-actions">
+          <button class="button quiet" id="refreshAccountButton" type="button">Refresh</button>
+          <button class="button quiet" id="cancelSignInButton" type="button">Cancel sign-in</button>
+          <button class="danger-button visible" id="signOutButton" type="button">Sign out</button>
+          <button class="button primary" id="accountPrimaryButton" type="button">Continue with ChatGPT</button>
+        </div>
+      </section>
+    </dialog>
+
+    <dialog id="confirmDialog" class="confirm-dialog">
+      <form method="dialog">
+        <span class="eyebrow">Please confirm</span>
+        <h2 id="confirmTitle">Remove this item?</h2>
+        <p id="confirmBody"></p>
+        <div class="dialog-actions"><button class="button quiet" value="cancel">Cancel</button><button class="button danger" id="confirmButton" value="confirm">Delete</button></div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

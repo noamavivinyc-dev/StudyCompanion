@@ -1,0 +1,24 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Xcode user and build state
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Local model caches and app data
+.cache/
+models/
+study-data.json
+audio-cache/
+voice-cache/
+tutor-output/
+runtime/
+sessions/
+archive/

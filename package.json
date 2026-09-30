@@ -1,0 +1,64 @@
+{
+  "name": "study-companion",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Noam Avivi",
+  "description": "Local-first iPad-aware study assistant for macOS",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noamavivinyc-dev/StudyCompanion.git"
+  },
+  "homepage": "https://github.com/noamavivinyc-dev/StudyCompanion#readme",
+  "bugs": {
+    "url": "https://github.com/noamavivinyc-dev/StudyCompanion/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir --mac"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
+    "kokoro-js": "^1.2.1"
+  },
+  "devDependencies": {
+    "electron": "44.5.0",
+    "electron-builder": "^26.15.3"
+  },
+  "overrides": {
+    "sharp": "0.35.4"
+  },
+  "build": {
+    "appId": "com.studycompanion.mac",
+    "productName": "Study Companion",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@huggingface/transformers/**",
+      "node_modules/kokoro-js/**",
+      "src/asr-worker.mjs",
+      "src/tts-worker.mjs"
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*",
+      "schemas/**/*",
+      "package.json",
+      "!node_modules/@huggingface/transformers/.cache/**"
+    ],
+    "mac": {
+      "target": ["dir"],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.education",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Study Companion listens for questions during an active study session.",
+        "NSLocalNetworkUsageDescription": "Study Companion receives your iPad screen over your local network."
+      }
+    }
+  }
+}

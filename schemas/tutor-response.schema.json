@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["answer", "spoken", "mode", "summary", "review", "annotations"],
+  "properties": {
+    "answer": {
+      "type": "string",
+      "description": "Concise markdown answer shown in the assistant panel."
+    },
+    "spoken": {
+      "type": "string",
+      "description": "Short natural version to speak aloud, without markdown."
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["hint", "explanation", "solution", "clarification"]
+    },
+    "summary": {
+      "type": "string",
+      "description": "One sentence durable memory of what the student was working on and what mattered."
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concept", "status", "prompt"],
+      "properties": {
+        "concept": { "type": "string", "description": "Short name of the main concept practiced." },
+        "status": { "type": "string", "enum": ["new", "developing", "secure"] },
+        "prompt": { "type": "string", "description": "A standalone future retrieval question without its answer." }
+      }
+    },
+    "annotations": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "x", "y", "width", "height", "status", "detail", "kind", "overlayText", "points"],
+        "properties": {
+          "label": { "type": "string" },
+          "x": { "type": "number", "minimum": 0, "maximum": 1 },
+          "y": { "type": "number", "minimum": 0, "maximum": 1 },
+          "width": { "type": "number", "minimum": 0.01, "maximum": 1 },
+          "height": { "type": "number", "minimum": 0.01, "maximum": 1 },
+          "status": {
+            "type": "string",
+            "enum": ["correct", "mistake", "focus", "uncertain"]
+          },
+          "detail": { "type": "string" }
+          ,"kind": { "type": "string", "enum": ["box", "highlight", "arrow", "step", "ghost"] }
+          ,"overlayText": { "type": "string", "description": "At most a short equation fragment or step number; never a full solution." }
+          ,"points": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y"],
+              "properties": {
+                "x": { "type": "number", "minimum": 0, "maximum": 1 },
+                "y": { "type": "number", "minimum": 0, "maximum": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
