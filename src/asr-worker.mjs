@@ -11,7 +11,7 @@ function transcriber() {
     transcriberPromise = pipeline("automatic-speech-recognition", "onnx-community/whisper-base.en", {
       dtype: "q8",
       device: "cpu",
-    });
+    }).catch((error) => { transcriberPromise = null; throw error; });
   }
   return transcriberPromise;
 }
