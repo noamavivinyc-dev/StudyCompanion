@@ -1,5 +1,11 @@
 const path = require("path");
-const { app, BrowserWindow, ipcMain, dialog, desktopCapturer, session, safeStorage, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, desktopCapturer, session, safeStorage, shell, protocol, powerSaveBlocker } = require("electron");
+const fs = require("node:fs");
+const { LectureLibrary } = require("./src/lectures");
+const { audioResponse } = require("./src/lecture-audio");
+const { safeName, emailDraftUrl, exportCoursePack } = require("./src/course-sharing");
+protocol.registerSchemesAsPrivileged([{ scheme: "study-audio", privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }]);
+if (process.env.STUDY_COMPANION_DATA_DIR) app.setPath("userData", process.env.STUDY_COMPANION_DATA_DIR);
 const { StudyStore } = require("./src/store");
 const { FrameServer } = require("./src/frame-server");
 const { ChatGPTTutor } = require("./src/chatgpt-tutor");
@@ -14,6 +20,8 @@ let frameServer;
 let tutor;
 let voice;
 let asr;
+let lectures;
+let recordingBlocker;
 let chatgptUsageUrl = "https://chatgpt.com/settings/usage";
 let tutorState = "idle";
 let voiceState = "idle";
@@ -87,12 +95,14 @@ function registerIpc() {
   ipcMain.handle("auth:manage-usage", () => shell.openExternal(chatgptUsageUrl));
 
   ipcMain.handle("course:create", (_event, input) => {
+    if (lectures.activeId) throw new Error("Finish recording before changing courses.");
     store.createCourse(input || {});
     broadcastState();
     return currentState();
   });
 
   ipcMain.handle("course:select", (_event, courseId) => {
+    if (lectures.activeId) throw new Error("Finish recording before changing courses.");
     store.selectCourse(courseId);
     broadcastState();
     return currentState();
@@ -105,6 +115,9 @@ function registerIpc() {
   });
 
   ipcMain.handle("course:delete", (_event, courseId) => {
+    if (lectures.activeId || lectures.jobs.size) throw new Error("Finish recording or processing before deleting a course.");
+    if (store.activeSession()?.courseId === courseId) throw new Error("End the current study session before deleting this course.");
+    for (const lecture of [...store.data.lectures].filter((item) => item.courseId === courseId)) lectures.remove(lecture.id);
     store.deleteCourse(courseId);
     broadcastState();
     return currentState();
@@ -241,14 +254,68 @@ function registerIpc() {
       send("asr:state", asrState);
     }
   });
+
+  ipcMain.handle("lecture:start", (_event, input) => {
+    voice.stop();
+    const lecture = lectures.start(input || {});
+    recordingBlocker = powerSaveBlocker.start("prevent-app-suspension");
+    broadcastState();
+    return lecture;
+  });
+  ipcMain.handle("lecture:append", (_event, id, bytes) => lectures.append(id, bytes));
+  ipcMain.handle("lecture:finish", async (_event, id) => {
+    const lecture = await lectures.finish(id);
+    if (recordingBlocker !== undefined && powerSaveBlocker.isStarted(recordingBlocker)) powerSaveBlocker.stop(recordingBlocker);
+    broadcastState();
+    return lecture;
+  });
+  ipcMain.handle("lecture:get", (_event, id) => lectures.detail(id));
+  ipcMain.handle("lecture:search", (_event, query) => {
+    const text = String(query || "").trim().toLocaleLowerCase().slice(0, 200);
+    return store.data.lectures.filter((lecture) => lecture.courseId === store.data.selectedCourseId &&
+      [lecture.title, ...lecture.notes.map((note) => note.text), ...lecture.segments.map((segment) => segment.text), lecture.studyGuide].some((value) => value.toLocaleLowerCase().includes(text)))
+      .map((lecture) => lecture.id);
+  });
+  ipcMain.handle("lecture:update", (_event, id, patch) => {
+    const lecture = lectures.update(id, patch || {});
+    broadcastState(); return lecture;
+  });
+  ipcMain.handle("lecture:transcribe", (_event, id) => lectures.transcribe(id, asr, broadcastState));
+  ipcMain.handle("lecture:generate", (_event, id) => lectures.generate(id, tutor, broadcastState));
+  ipcMain.handle("lecture:remove", (_event, id) => { lectures.remove(id); broadcastState(); return currentState(); });
+  ipcMain.handle("lecture:export", async (_event, id, kind) => {
+    if (!["audio", "notes"].includes(kind)) throw new Error("Choose audio or notes.");
+    const lecture = lectures.get(id);
+    if (lecture.status === "recording") throw new Error("Finish recording before exporting.");
+    const extension = kind === "audio" ? "wav" : "md";
+    const result = await dialog.showSaveDialog(window, { defaultPath: `${lecture.title.replace(/[^\p{L}\p{N} _-]/gu, "").slice(0, 80) || "Lecture"}.${extension}`, filters: [{ name: kind === "audio" ? "WAV audio" : "Markdown notes", extensions: [extension] }] });
+    if (result.canceled) return false;
+    if (kind === "audio") await fs.promises.copyFile(lectures.audioPath(id), result.filePath);
+    else await fs.promises.writeFile(result.filePath, lectures.markdown(id));
+    return true;
+  });
+  ipcMain.handle("course:share", async (_event, input = {}) => {
+    const course = store.data.courses.find((item) => item.id === input.courseId);
+    if (!course) throw new Error("Select a course first.");
+    const draft = emailDraftUrl({ ...input, courseName: course.name, lectureCount: store.data.lectures.filter((item) => item.courseId === course.id).length, materialCount: course.materials.filter((item) => !item.lectureId).length });
+    const result = await dialog.showSaveDialog(window, { title: "Save class study pack", defaultPath: `${safeName(course.name)} - study pack.zip`, filters: [{ name: "Class study pack", extensions: ["zip"] }] });
+    if (result.canceled) return null;
+    const pack = await exportCoursePack(store, lectures, course.id, result.filePath, { includeAudio: input.includeAudio !== false });
+    shell.showItemInFolder(pack.path);
+    if (input.openEmail) {
+      try { await shell.openExternal(draft); }
+      catch { return { ...pack, emailError: "Your study pack is saved. No email app opened; attach the ZIP in your mail app manually." }; }
+    }
+    return pack;
+  });
 }
 
 async function createWindow() {
   window = new BrowserWindow({
     width: 1480,
     height: 920,
-    minWidth: 1100,
-    minHeight: 720,
+    minWidth: 780,
+    minHeight: 560,
     title: "Study Companion",
     backgroundColor: "#f3efe5",
     titleBarStyle: "hiddenInset",
@@ -261,6 +328,9 @@ async function createWindow() {
     },
   });
   await window.loadFile(path.join(__dirname, "renderer", "index.html"));
+  window.on("close", (event) => {
+    if (lectures?.activeId) { event.preventDefault(); send("lecture:close-request", null); }
+  });
 }
 
 app.whenReady().then(async () => {
@@ -268,6 +338,11 @@ app.whenReady().then(async () => {
   const { createChatGPT, CHATGPT_USAGE_URL } = await import("@siwc/local");
   chatgptUsageUrl = CHATGPT_USAGE_URL;
   store = new StudyStore(userData);
+  lectures = new LectureLibrary(store);
+  protocol.handle("study-audio", (request) => {
+    try { return audioResponse(lectures.audioPath(new URL(request.url).pathname.slice(1)), request); }
+    catch { return new Response("Recording unavailable", { status: 404 }); }
+  });
   const chatgpt = createChatGPT({
     appName: "Study Companion",
     appId: "study-companion",
@@ -321,7 +396,8 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (lectures?.activeId) { event.preventDefault(); send("lecture:close-request", null); return; }
   tutor?.dispose();
   voice?.dispose();
   asr?.dispose();

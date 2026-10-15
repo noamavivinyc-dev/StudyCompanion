@@ -1,6 +1,6 @@
 {
   "name": "study-companion",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "author": "Noam Avivi",
   "description": "Local-first iPad-aware study assistant for macOS",
@@ -55,11 +55,13 @@
       "!node_modules/@huggingface/transformers/.cache/**"
     ],
     "mac": {
-      "target": ["dir"],
+      "target": [
+        "dir"
+      ],
       "icon": "build/icon.icns",
       "category": "public.app-category.education",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Study Companion listens for questions during an active study session.",
+        "NSMicrophoneUsageDescription": "Study Companion records lectures and listens for spoken study questions when you choose to record.",
         "NSLocalNetworkUsageDescription": "Study Companion receives your iPad screen over your local network."
       }
     }

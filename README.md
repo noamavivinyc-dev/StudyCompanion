@@ -8,6 +8,9 @@ The project is an early working prototype. It is designed for technical coursewo
 
 ## What already works
 
+- A course overview with direct entry points for lectures, materials, and live tutoring
+- Lecture recording with microphone selection, pause/resume, timestamped notes, local audio playback, and seeking from notes
+- Local lecture transcription, optional ChatGPT study guides with retrieval questions, full-text lecture search, and audio/Markdown export
 - Live iPad screen capture over the local network, at roughly one frame per second
 - One-click Mac screen capture for testing without an iPad
 - Spoken or typed questions about the current page
@@ -111,9 +114,24 @@ For the full authentication flow, secure-storage behavior, and error recovery, s
 
 Study Companion defaults to the least revealing useful hint. For work checks, it confirms correct steps, identifies the first meaningful mistake, and suggests the next action. Course memory is opt-in; when enabled, it creates a private, course-specific spaced-review queue.
 
+## Record and study a lecture
+
+1. Select its course, then choose **Record lecture**.
+2. Give the lecture a title, choose a microphone, and click **Start recording**. Recording and notes work without a ChatGPT account.
+3. Add notes as you listen. **Pause** stops audio capture without ending the lecture; **Resume** continues the same recording. Pauses are excluded from the saved audio timeline.
+4. Click **Finish & save**. Audio saves incrementally on this Mac, and any draft note is added before finishing. The app keeps the computer awake while recording and asks you to finish before closing.
+5. In **Transcript**, click **Transcribe locally**. The existing local Whisper engine processes one-minute audio pieces; the first use downloads its speech model. No audio is uploaded. Transcript timestamps mark each one-minute piece, rather than individual words.
+6. In **Study guide**, click **Make study guide** after connecting ChatGPT. This sends lecture text and notes to your account, generating key ideas and retrieval questions with a separate answer key. **Practice with the tutor** starts an interactive review.
+
+Open **Lectures** to search titles, notes, transcripts, and guides. Rename a lecture directly in its title field or move it using the Course selector. Click a note or transcript timestamp to play that moment. Use **Export audio** for WAV or **Export notes** for Markdown, including the notes, transcript, and study guide.
+
+Lecture notes and transcripts automatically join the course materials used by the tutor. Your files stay local unless you explicitly ask for AI help. An interrupted recording is recovered from audio already written to disk on the next launch. Removing a lecture or course moves lecture audio and metadata into the local `archive/lectures` folder.
+
+The recording and transcription design was informed by [NitroAI](https://github.com/Blueturboguy07/NitroAI), especially its separation of source capture, bounded audio processing, and study generation. This implementation uses Study Companion's existing local speech and ChatGPT services; no NitroAI source code or dependencies were copied.
+
 ## Add course context
 
-Open **Course library → ＋ Add files**. Supported import formats are:
+Open **Add materials → ＋ Add files** (or **＋ Add course materials** on Overview). Supported import formats are:
 
 ```text
 PDF, PPTX, TXT, Markdown, CSV, DOC, DOCX, and RTF
