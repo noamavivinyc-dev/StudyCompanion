@@ -7,58 +7,70 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a class="skip-link" href="#workspace">Skip to study desk</a>
     <div class="app-shell">
       <header class="titlebar">
         <div class="brand-lockup">
           <span class="brand-mark">SC</span>
           <div>
             <strong>Study Companion</strong>
-            <span>local study desk</span>
+            <span>Your study desk</span>
           </div>
         </div>
         <div class="session-controls">
-          <span class="privacy-pill"><i></i> Local session</span>
+          <span class="privacy-pill"><i></i> Saved on this Mac</span>
           <button class="account-button" id="accountButton" aria-label="Open ChatGPT account settings">
             <span class="account-dot"></span>
             <span id="accountButtonLabel">Checking ChatGPT…</span>
           </button>
-          <button class="button quiet" id="materialsButton">Course library</button>
-          <button class="button primary" id="sessionButton">Start session</button>
+          <button class="button quiet" id="materialsButton">Add materials</button>
+          <button class="button quiet share-class-button" id="shareClassButton" aria-label="Share this class by email"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg><span>Share class</span></button>
+          <button class="button primary" id="recordLectureButton"><span aria-hidden="true">●</span> Record lecture</button>
+          <button class="button quiet" id="sessionButton" hidden>Start session</button>
         </div>
       </header>
 
-      <main class="layout">
+      <div class="layout">
         <aside class="course-rail">
           <div class="section-heading">
-            <span>Courses</span>
+            <span>Your courses</span>
             <button class="new-course-button" id="newCourseButton" aria-label="Create course">＋ New</button>
           </div>
           <nav id="courseList" class="course-list" aria-label="Courses"></nav>
-          <div class="rail-footer">
+          <div class="rail-footer"><p class="rail-note">One course. All your material.<br>Pick a course to keep studying.</p>
+          <details class="study-preferences"><summary>Study preferences</summary>
             <div class="setting-row">
               <div><strong>Course memory</strong><span>Keep local summaries</span></div>
-              <label class="switch"><input id="memoryToggle" type="checkbox" /><span></span></label>
+              <label class="switch"><input id="memoryToggle" aria-label="Save course memory" type="checkbox" /><span></span></label>
             </div>
             <div class="setting-row">
               <div><strong>Hands-free</strong><span>Listen between replies</span></div>
-              <label class="switch"><input id="handsFreeToggle" type="checkbox" /><span></span></label>
+              <label class="switch"><input id="handsFreeToggle" aria-label="Hands-free tutor" type="checkbox" /><span></span></label>
             </div>
-          </div>
+          </details></div>
         </aside>
 
+        <main class="workspace" id="workspace" tabindex="-1">
+          <nav class="view-tabs" aria-label="Study views">
+            <button data-view="overview" aria-current="page">Overview</button>
+            <button data-view="live">Live tutor</button>
+            <button data-view="lectures">Lectures <span id="lectureTabCount"></span></button>
+          </nav>
+          <section id="overviewView" class="overview-view"><div id="overviewContent"></div></section>
+          <div id="liveView" class="live-workspace" hidden>
         <section class="desk">
           <div class="desk-toolbar">
             <div>
-              <span class="eyebrow">Live notebook</span>
+              <span class="eyebrow">Live tutor</span>
               <h1 id="courseTitle">Physics 201</h1>
             </div>
-            <div class="source-controls">
+            <div class="source-controls"><details class="live-options"><summary>Screen &amp; voice</summary><div class="options-menu">
               <span class="voice-status-chip" id="voiceStatusChip"><i></i><span>Voice ready</span></span>
               <span class="connection-badge" id="connectionBadge"><i></i><span>Waiting for iPad</span></span>
               <button class="button quiet guidance-button" id="guidanceButton">Guidance on</button>
               <button class="button quiet" id="captureMacButton">Use Mac screen</button>
               <button class="button quiet sound-button" id="muteButton" aria-label="Mute spoken replies">Voice on</button>
-            </div>
+            </div></details></div>
           </div>
 
           <div class="screen-stage" id="screenStage">
@@ -72,19 +84,21 @@
                 <span class="tablet-line"></span>
                 <span class="pencil-line"></span>
               </div>
-              <h2>Your page will appear here</h2>
-              <p>Open Study Capture on your iPad, enter this Mac’s address and pairing code, then share your screen.</p>
+              <h2>Bring your work into view</h2>
+              <p>Share a page for visual hints, or ask a question using your course materials.</p>
+              <button class="button primary" id="emptyMacButton">Capture Mac screen</button>
+              <details class="ipad-setup"><summary>Connect an iPad instead</summary><p>Open Study Capture on your iPad. Enter this address and code, then share your screen.</p>
               <div class="pairing-card">
                 <div><span>MAC ADDRESS</span><strong id="pairingAddress">Finding address…</strong></div>
                 <div><span>PAIRING CODE</span><strong id="pairingToken">—</strong></div>
               </div>
-              <button class="text-button" id="emptyMacButton">or use this Mac’s screen</button>
+              </details>
             </div>
             <div class="frame-meta" id="frameMeta"></div>
           </div>
 
           <div class="ask-bar">
-            <button class="mic-button" id="micButton" aria-label="Ask by voice"><span class="mic-glyph"></span></button>
+            <button class="mic-button" id="micButton" aria-label="Ask by voice" aria-pressed="false" title="Ask by voice"><svg class="mic-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><svg class="mic-stop-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
             <div class="ask-input-wrap">
               <label for="questionInput" id="inputLabel">Ask about what’s on your screen</label>
               <textarea id="questionInput" rows="1" placeholder="Check my work, explain this step, or give me a hint…"></textarea>
@@ -100,7 +114,7 @@
             <div><span class="eyebrow">Study assistant</span><strong id="tutorStatus">Ready when you are</strong></div>
             <button class="icon-button" id="stopVoiceButton" aria-label="Stop speaking">■</button>
           </div>
-          <div class="conversation" id="conversation">
+          <div class="conversation" id="conversation" role="log" aria-label="Tutor conversation">
             <div class="welcome-card">
               <span class="index">01</span>
               <p>I’ll look at the page you’re working on and guide you from the first uncertain step. I’ll hint before I solve.</p>
@@ -116,22 +130,46 @@
             <span class="ai-light" id="aiLight" title="ChatGPT connection"></span>
           </div>
         </aside>
-      </main>
+          </div>
+          <section id="lecturesView" class="lectures-view" hidden>
+            <div class="lecture-page-heading"><div><span class="eyebrow">Capture · Understand · Review</span><h1>Lectures</h1><p id="lectureCourseLabel">Your recordings and notes, together.</p></div><button class="button quiet" id="newLectureButton">＋ New recording</button></div>
+            <div class="lecture-workspace">
+              <aside class="lecture-index"><label class="search-wrap"><span>Search lectures</span><input id="lectureSearch" type="search" placeholder="Search titles, notes &amp; transcripts…" /></label><div id="lectureList" class="lecture-list"></div></aside>
+              <section class="lecture-main">
+                <div id="lectureEmpty" class="lecture-empty"><span class="recording-symbol" aria-hidden="true">♫</span><h2>A whole lecture, in one place.</h2><p>Record the lecture, jot down what matters, and return to any moment when you study.</p><button class="button primary" id="emptyRecordButton">Record your first lecture</button><span>Audio and notes save on this Mac. No account needed.</span></div>
+                <form id="lectureSetup" class="lecture-setup" hidden><span class="eyebrow">New recording</span><h2>Ready for class.</h2><p>Your recording will be saved to <strong id="recordingCourseName"></strong>.</p><label>Lecture title<input id="lectureTitleInput" maxlength="120" required placeholder="e.g. Electric fields and potential" /></label><label>Microphone<select id="lectureMicrophone"><option value="">Default microphone</option></select></label><p class="setup-hint">Keep the app open while recording. You can pause and add notes at any time.</p><p id="lectureSetupError" class="inline-error" role="alert" hidden></p><div class="setup-actions"><button class="button primary" id="startLectureButton" type="submit">● Start recording</button><button class="button quiet" id="cancelLectureSetup" type="button">Cancel</button></div></form>
+                <div id="lectureDetail" class="lecture-detail" hidden>
+                  <div class="lecture-detail-heading"><div><label class="sr-only" for="savedLectureTitle">Lecture title</label><input id="savedLectureTitle" class="title-input" maxlength="120" /><p id="lectureMetadata"></p></div><div class="lecture-organize"><label for="lectureCourseSelect">Course</label><select id="lectureCourseSelect"></select></div></div>
+                  <div class="recording-controls" id="lectureRecordingControls" hidden><div class="recording-indicator"><i></i><strong id="lectureRecordingLabel">Recording</strong><span id="lectureTimer">0:00</span></div><div><button class="button quiet" id="pauseLectureButton">Pause</button><button class="button primary" id="finishLectureButton">Finish &amp; save</button></div></div>
+                  <div class="saved-audio" id="lectureSavedAudio" hidden><audio id="lectureAudio" controls preload="metadata" aria-label="Lecture recording"></audio><button class="text-button" id="exportAudioButton">Export audio</button></div>
+                  <div id="lectureProgress" class="processing-status" role="status" aria-live="polite" hidden></div>
+                  <p id="lectureError" class="inline-error" role="alert" hidden></p>
+                  <nav class="lecture-detail-tabs" aria-label="Lecture content"><button data-lecture-tab="notes" aria-current="page">My notes</button><button data-lecture-tab="transcript">Transcript</button><button data-lecture-tab="guide">Study guide</button></nav>
+                  <section id="lectureNotesPanel"><form id="lectureNoteForm" class="lecture-note-form"><label for="lectureNoteInput">Capture a thought</label><textarea id="lectureNoteInput" rows="3" placeholder="Key idea, question, or something to revisit…" maxlength="10000"></textarea><div><span id="noteTimestampHint">Notes link to the current moment in the audio.</span><button class="button quiet" id="addLectureNoteButton" type="submit">＋ Add note</button></div></form><div id="lectureNotesList" class="lecture-notes-list"></div></section>
+                  <section id="lectureTranscriptPanel" hidden><div class="content-action"><div><strong>Hear it again. Read it back.</strong><p>Transcribe on this Mac using local speech recognition. The first use downloads a speech model; no audio is uploaded.</p></div><button class="button quiet" id="transcribeLectureButton">Transcribe locally</button></div><div id="lectureTranscriptList"></div></section>
+                  <section id="lectureGuidePanel" hidden><div class="content-action"><div><strong>Turn this lecture into a study plan.</strong><p>Send the transcript and your notes to your connected ChatGPT account for key ideas and practice questions.</p></div><button class="button primary" id="generateLectureButton">Make study guide</button></div><div id="lectureStudyGuide" class="study-guide"></div><button class="button quiet" id="quizLectureButton" hidden>Practice with the tutor →</button></section>
+                  <div class="lecture-footer"><span id="lectureSaveStatus" role="status">Saved on this Mac</span><div><button class="text-button" id="exportNotesButton">Export notes</button><button class="text-button danger-text" id="removeLectureButton">Remove lecture</button></div></div>
+                </div>
+              </section>
+            </div>
+          </section>
+        </main>
+      </div>
     </div>
 
     <dialog id="courseDialog">
       <form method="dialog" id="courseForm">
         <button type="button" class="dialog-close" id="closeCourseButton" aria-label="Close">×</button>
         <span class="eyebrow" id="courseDialogEyebrow">New course</span>
-        <h2 id="courseDialogTitle">Give this context a home.</h2>
+        <h2 id="courseDialogTitle">Create a course</h2>
         <label>Course name<input id="courseName" required placeholder="Electricity & Magnetism" /></label>
         <label>Short name<input id="courseShortName" maxlength="18" placeholder="PHYS 202" /></label>
         <div class="color-row" id="colorRow">
-          <button type="button" class="color-dot selected" data-color="#168aad" style="--dot:#168aad"></button>
-          <button type="button" class="color-dot" data-color="#ff6b35" style="--dot:#ff6b35"></button>
-          <button type="button" class="color-dot" data-color="#6a994e" style="--dot:#6a994e"></button>
-          <button type="button" class="color-dot" data-color="#9b5de5" style="--dot:#9b5de5"></button>
-          <button type="button" class="color-dot" data-color="#d62828" style="--dot:#d62828"></button>
+          <button type="button" class="color-dot selected" data-color="#168aad" aria-label="Teal" style="--dot:#168aad"></button>
+          <button type="button" class="color-dot" data-color="#ff6b35" aria-label="Orange" style="--dot:#ff6b35"></button>
+          <button type="button" class="color-dot" data-color="#6a994e" aria-label="Green" style="--dot:#6a994e"></button>
+          <button type="button" class="color-dot" data-color="#9b5de5" aria-label="Purple" style="--dot:#9b5de5"></button>
+          <button type="button" class="color-dot" data-color="#d62828" aria-label="Red" style="--dot:#d62828"></button>
         </div>
         <div class="dialog-actions">
           <button type="button" class="danger-button" id="deleteCourseButton">Delete course</button>
@@ -175,7 +213,7 @@
           </div>
           <div>
             <span class="boundary-icon sent">↑</span>
-            <p><strong>Sent when you ask</strong><span>Your current screenshot, question, and the relevant excerpts from this course.</span></p>
+            <p><strong>Sent when you ask</strong><span>Your current screenshot, question, and relevant course excerpts; lecture text when you request a study guide.</span></p>
           </div>
         </div>
 
@@ -190,6 +228,9 @@
       </section>
     </dialog>
 
+    <dialog id="shareClassDialog" class="share-class-dialog" aria-labelledby="shareClassTitle">
+      <form id="shareClassForm"><button type="button" class="dialog-close" id="closeShareClassButton" aria-label="Close">×</button><span class="eyebrow">Share your study materials</span><h2 id="shareClassTitle">Send the whole class.</h2><p id="shareClassSummary" class="share-summary"></p><div class="share-contents"><strong>One ZIP, ready to share</strong><p>Lecture notes, saved transcripts and study guides, imported course text, and study conversations. Account details and screenshots stay private.</p><label class="audio-share-option"><input id="shareIncludeAudio" type="checkbox" checked /><span>Include lecture recordings <small>Larger file; uncheck to send just the text.</small></span></label></div><label>Email to <span class="optional-label">optional</span><input id="shareRecipient" type="email" maxlength="254" placeholder="classmate@example.com" /></label><label>Open draft in<select id="shareEmailProvider"><option value="default">Default email app</option><option value="gmail">Gmail in browser</option></select></label><p class="share-instructions">Save the ZIP, then attach it to the draft. The app opens its folder for you. Large packs can be uploaded to your preferred file service and shared as a link.</p><p id="shareClassError" class="inline-error" role="alert" hidden></p><div id="shareClassResult" class="share-result" role="status" hidden></div><div class="dialog-actions"><button class="button quiet" type="button" id="exportClassOnlyButton">Save ZIP only</button><button class="button primary" type="submit" id="emailClassButton">Save ZIP &amp; open email</button></div></form>
+    </dialog>
     <dialog id="confirmDialog" class="confirm-dialog">
       <form method="dialog">
         <span class="eyebrow">Please confirm</span>
@@ -199,6 +240,8 @@
       </form>
     </dialog>
     <div id="toast" class="toast" role="status"></div>
+    <script src="lecture-recorder.js"></script>
     <script src="app.js"></script>
+    <script src="lectures.js"></script>
   </body>
 </html>
