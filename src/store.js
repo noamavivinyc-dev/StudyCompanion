@@ -83,6 +83,7 @@ class StudyStore {
     });
     data.sessions = Array.isArray(data.sessions) ? data.sessions : [];
     data.messages = Array.isArray(data.messages) ? data.messages : [];
+    data.lectures = Array.isArray(data.lectures) ? data.lectures : [];
     if (!data.selectedCourseId && data.courses[0]) data.selectedCourseId = data.courses[0].id;
     return data;
   }
@@ -108,9 +109,10 @@ class StudyStore {
         updatedAt: course.updatedAt,
         materialCount: course.materials.length,
         memoryCount: course.memory.length,
+        lectureCount: (this.data.lectures || []).filter((lecture) => lecture.courseId === course.id).length,
         materials: course.materials
-          .map(({ id, name, kind, category, sourceDate, addedAt, timeline, text }) => ({
-            id, name, kind, category, sourceDate, addedAt, timeline: timeline || [], textLength: text?.length || 0,
+          .map(({ id, name, kind, category, sourceDate, addedAt, timeline, text, lectureId }) => ({
+            id, name, kind, category, sourceDate, addedAt, lectureId, timeline: timeline || [], textLength: text?.length || 0,
           }))
           .sort((a, b) => String(b.sourceDate || b.addedAt).localeCompare(String(a.sourceDate || a.addedAt))),
         reviewDueCount: (course.reviewItems || []).filter((item) => new Date(item.nextReviewAt).valueOf() <= today).length,
@@ -125,6 +127,9 @@ class StudyStore {
       activeSession: active,
       messages: active ? this.messagesFor(active.id) : [],
       recentSessions: this.data.sessions.slice(-12).reverse(),
+      lectures: (this.data.lectures || []).filter((lecture) => lecture.courseId === this.data.selectedCourseId)
+        .map(({ segments, notes, studyGuide, ...lecture }) => ({ ...lecture, noteCount: notes?.length || 0, hasTranscript: Boolean(segments?.length), hasStudyGuide: Boolean(studyGuide) }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       ...extra,
     };
   }
@@ -142,6 +147,7 @@ class StudyStore {
   }
 
   createCourse({ name, shortName, color }) {
+    if (this.activeSession()) throw new Error("End the current study session before creating another course.");
     const cleanName = String(name || "").trim();
     if (!cleanName) throw new Error("Give the course a name.");
     const course = {
@@ -193,7 +199,8 @@ class StudyStore {
     this.data.courses = this.data.courses.filter((item) => item.id !== courseId);
     this.data.sessions = this.data.sessions.filter((item) => item.courseId !== courseId);
     this.data.messages = this.data.messages.filter((item) => !sessionIds.has(item.sessionId));
-    this.data.selectedCourseId = this.data.courses[0]?.id || null;
+    this.data.lectures = (this.data.lectures || []).filter((item) => item.courseId !== courseId);
+    if (this.data.selectedCourseId === courseId) this.data.selectedCourseId = this.data.courses[0]?.id || null;
     this.save();
   }
 

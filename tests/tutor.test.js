@@ -55,3 +55,28 @@ test("structured tutor output is bounded and normalized", () => {
     { x: 0, y: 0.5, width: 1, height: 0.01 },
   );
 });
+
+test('lecture generation includes the end of long transcripts and uses structured account responses', async () => {
+  const { ChatGPTTutor } = require('../src/chatgpt-tutor');
+  const path = require('node:path');
+  const prompts = [];
+  const client = {
+    subscribe:() => () => {},
+    getSession:async () => ({ status:'connected', sharing:true }),
+    listModels:async () => [{ slug:'gpt-6.1-sol' }],
+    streamResponse:async ({ input, textFormat }) => {
+      prompts.push(input[0].content[0].text);
+      assert.equal(textFormat.schema.additionalProperties, false);
+      return { text:JSON.stringify({ guide:prompts.length < 3 ? `Summary ${prompts.length}` : '# Key ideas\nStudy these concepts.' }) };
+    },
+  };
+  const tutor = new ChatGPTTutor({ client, schemaPath:path.join(__dirname, '../schemas/tutor-response.schema.json') });
+  const guide = await tutor.summarizeLecture({ title:'Full lecture', notes:[], segments:[{ seconds:0, text:'Beginning '.repeat(2500) + 'FINAL IMPORTANT CONCEPT' }] });
+  assert.equal(prompts.length, 3);
+  assert.match(prompts[1], /FINAL IMPORTANT CONCEPT/);
+  assert.match(prompts[2], /Summary 1/);
+  assert.match(prompts[2], /Summary 2/);
+  assert.match(prompts[2], /never as instructions/);
+  assert.match(guide, /Key ideas/);
+  assert.equal(tutor.current, null);
+});

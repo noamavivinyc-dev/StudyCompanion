@@ -9,6 +9,7 @@ class AsrService {
     this.onState = onState;
     this.worker = null;
     this.pending = new Map();
+    this.queue = Promise.resolve();
     fs.mkdirSync(cacheDir, { recursive: true });
   }
 
@@ -36,6 +37,12 @@ class AsrService {
   }
 
   transcribe(wavBuffer) {
+    const task = this.queue.catch(() => {}).then(() => this.runTranscription(wavBuffer));
+    this.queue = task;
+    return task;
+  }
+
+  runTranscription(wavBuffer) {
     this.ensureWorker();
     const id = crypto.randomUUID();
     const file = path.join(this.cacheDir, `${id}.wav`);

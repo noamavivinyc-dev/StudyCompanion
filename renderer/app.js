@@ -13,7 +13,7 @@ let silenceStartedAt = 0;
 let selectedColor = "#168aad";
 let toastTimer = null;
 let editingCourseId = null;
-let promptedForAccount = false;
+
 
 const els = {
   courseList: $("#courseList"),
@@ -85,7 +85,7 @@ function formatDate(value, fallback = "No date") {
 
 function dateInputValue(value) {
   const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? "" : date.toISOString().slice(0, 10);
+  return Number.isNaN(date.valueOf()) ? "" : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function render() {
@@ -94,14 +94,23 @@ function render() {
   els.courseTitle.textContent = course?.name || "No course";
   els.courseList.innerHTML = state.courses.length ? state.courses.map((item) => `
     <div class="course-card-wrap" style="--course-color:${item.color}">
-      <button class="course-card ${item.id === state.selectedCourseId ? "active" : ""}" data-course-id="${item.id}">
+      <button class="course-card ${item.id === state.selectedCourseId ? "active" : ""}" aria-current="${item.id === state.selectedCourseId ? "true" : "false"}" data-course-id="${item.id}">
         <strong>${escapeHtml(item.shortName)}</strong>
-        <span>${item.materialCount} material${item.materialCount === 1 ? "" : "s"}${item.reviewDueCount ? ` · ${item.reviewDueCount} due` : ""}</span>
+        <span>${item.lectureCount || 0} lecture${item.lectureCount === 1 ? "" : "s"} · ${item.materialCount} material${item.materialCount === 1 ? "" : "s"}${item.reviewDueCount ? ` · ${item.reviewDueCount} due` : ""}</span>
       </button>
       <button class="course-edit-button" data-edit-course="${item.id}" aria-label="Edit ${escapeHtml(item.name)}">•••</button>
     </div>`).join("") : `<div class="empty-course-list">Create a course to keep its syllabus, notes, and study history together.</div>`;
   $$('[data-course-id]').forEach((button) => button.addEventListener("click", async () => {
-    try { state = await window.study.selectCourse(button.dataset.courseId); render(); } catch (error) { showToast(error); }
+    try {
+      if (button.dataset.courseId === state.selectedCourseId) return;
+      if (window.lectureRecorderActive) { showToast("Finish your recording before switching courses."); return; }
+      if (state.activeSession) {
+        if (!await confirmAction("Switch courses?", "Your current tutor session will end. Lecture recordings and notes remain saved.", "Switch course")) return;
+        if (recording) await stopRecording(false);
+        state = await window.study.endSession();
+      }
+      state = await window.study.selectCourse(button.dataset.courseId); render();
+    } catch (error) { showToast(error); }
   }));
   $$('[data-edit-course]').forEach((button) => button.addEventListener("click", () => openCourseDialog(state.courses.find((item) => item.id === button.dataset.editCourse))));
 
@@ -110,7 +119,7 @@ function render() {
   els.sessionButton.classList.toggle("primary", !active);
   els.sessionButton.disabled = !active && !course;
   els.materialsButton.disabled = !course;
-  els.sendButton.disabled = !active || state.tutorState === "thinking";
+  els.sendButton.disabled = !course || state.tutorState === "thinking";
   els.memoryToggle.checked = state.settings.persistCourseMemory;
   els.handsFreeToggle.checked = state.settings.handsFree;
   els.muteButton.classList.toggle("muted", state.settings.muted);
@@ -128,10 +137,10 @@ function render() {
   updateVoiceUI();
   if (els.libraryDialog.open) renderLibrary();
   if (els.accountDialog.open) renderAccountDialog();
-  if (!promptedForAccount && ["disconnected", "reauth_required", "sharing_disabled"].includes(state.chatgpt.state)) {
-    promptedForAccount = true;
-    setTimeout(openAccountDialog, 250);
-  }
+  renderOverview();
+  renderLectureIndex();
+  $("#recordLectureButton").disabled = !course;
+  $("#lectureTabCount").textContent = course?.lectureCount || "";
 }
 
 function renderAccountState() {
@@ -278,17 +287,17 @@ function renderMessages() {
 }
 
 function updateTutorState(value) {
-  const labels = { thinking: "Reading your work…", idle: state?.activeSession ? "Ready for a question" : "Start a study session" };
+  const labels = { thinking: "Reading your work…", idle: "Ready for a question" };
   els.tutorStatus.textContent = labels[value] || "Ready when you are";
   els.tutorOrb.classList.toggle("working", value === "thinking");
-  els.sendButton.disabled = !state?.activeSession || value === "thinking";
+  els.sendButton.disabled = !activeCourse() || value === "thinking";
   updateVoiceUI();
 }
 
 function openCourseDialog(course = null) {
   editingCourseId = course?.id || null;
   $("#courseDialogEyebrow").textContent = course ? "Course settings" : "New course";
-  $("#courseDialogTitle").textContent = course ? "Keep this course organized." : "Give this context a home.";
+  $("#courseDialogTitle").textContent = course ? "Edit course" : "Create a course";
   $("#saveCourseButton").textContent = course ? "Save changes" : "Create course";
   $("#deleteCourseButton").classList.toggle("visible", Boolean(course));
   $("#courseName").value = course?.name || "";
@@ -319,7 +328,7 @@ function renderLibrary() {
     <div class="summary-tile"><span>Last updated</span><strong>${escapeHtml(formatDate(course.updatedAt))}</strong></div>`;
   els.materialList.innerHTML = course.materials.length ? course.materials.map((material) => `
     <div class="material-row" data-material-row="${material.id}">
-      <div class="material-name"><strong title="${escapeHtml(material.name)}">${escapeHtml(material.name)}</strong><span>${escapeHtml(material.kind.toUpperCase())} · added ${escapeHtml(formatDate(material.addedAt))}</span></div>
+      <div class="material-name">${material.kind === "lecture" ? `<button class="material-open" data-open-material-lecture="${material.id}">${escapeHtml(material.name)}</button>` : `<strong title="${escapeHtml(material.name)}">${escapeHtml(material.name)}</strong>`}<span>${escapeHtml(material.kind.toUpperCase())} · added ${escapeHtml(formatDate(material.addedAt))}</span></div>
       <select data-material-category="${material.id}" aria-label="Material type">
         ${["syllabus", "assignment", "slides", "rubric", "notes"].map((category) => `<option value="${category}" ${material.category === category ? "selected" : ""}>${category[0].toUpperCase() + category.slice(1)}</option>`).join("")}
       </select>
@@ -339,6 +348,10 @@ function renderLibrary() {
     const material = course.materials.find((item) => item.id === button.dataset.removeMaterial);
     if (!await confirmAction("Remove this material?", `${material?.name || "This file"} will no longer be available to the tutor. The original file is not changed.`, "Remove")) return;
     try { state = await window.study.removeMaterial(course.id, button.dataset.removeMaterial); render(); renderLibrary(); } catch (error) { showToast(error); }
+  }));
+  $$('[data-open-material-lecture]').forEach((button) => button.addEventListener("click", () => {
+    const lecture = (state.lectures || []).find((item) => item.id === course.materials.find((material) => material.id === button.dataset.openMaterialLecture)?.lectureId);
+    if (lecture) { els.libraryDialog.close(); setView("lectures"); openLecture(lecture.id); }
   }));
   $("#reviewDueButton")?.addEventListener("click", () => beginDueReview(reviews));
 }
@@ -360,22 +373,31 @@ async function beginDueReview(reviews) {
 }
 
 async function sendQuestion() {
-  if (!state?.activeSession || state.tutorState === "thinking") {
-    if (!state?.activeSession) showToast("Start a study session first.");
-    return;
-  }
+  if (!state || !activeCourse() || state.tutorState === "thinking") return;
+  if (window.lectureRecorderActive) { showToast("Finish the lecture recording before using the tutor."); return; }
   if (!state.chatgpt.authenticated) {
     openAccountDialog();
     showToast("Connect your ChatGPT account before asking the tutor.");
     return;
   }
   const question = els.questionInput.value.trim();
+  if (!question && !state.frame) { els.questionInput.focus(); return; }
+  if (!state.activeSession) {
+    try { state = await window.study.startSession(); } catch (error) { showToast(error); return; }
+  }
+  state.tutorState = "thinking";
+  updateTutorState("thinking");
   els.questionInput.value = "";
   resizeInput();
   try {
     await window.study.askTutor(question);
   } catch (error) {
+    els.questionInput.value = question;
+    resizeInput();
     showToast(error);
+  } finally {
+    state.tutorState = "idle";
+    updateTutorState("idle");
   }
 }
 
@@ -385,13 +407,14 @@ function resizeInput() {
 }
 
 async function startRecording() {
-  if (recording || !state?.activeSession || state?.tutorState === "thinking" || state?.voiceState === "speaking" || state?.voiceState === "loading" || state?.asrState === "transcribing") return;
+  if (window.lectureRecorderActive || recording || !state || state?.tutorState === "thinking" || state?.voiceState === "speaking" || state?.voiceState === "loading" || state?.asrState === "transcribing") return;
   if (!state.chatgpt.authenticated) {
     openAccountDialog();
     showToast("Connect ChatGPT before asking by voice.");
     return;
   }
   try {
+    if (!state.activeSession) state = await window.study.startSession();
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(mediaStream);
@@ -434,7 +457,7 @@ async function stopRecording(transcribe = true) {
   const sourceRate = audioContext?.sampleRate || 48000;
   await audioContext?.close();
   processor = null; mediaStream = null; audioContext = null;
-  if (!transcribe || !capturedChunks.length || !heardSpeech) { updateVoiceUI(); if (state?.settings.handsFree && state?.activeSession) setTimeout(startRecording, 700); return; }
+  if (!transcribe || !capturedChunks.length || !heardSpeech) { updateVoiceUI(); if (!window.lectureRecorderActive && state?.settings.handsFree && state?.activeSession) setTimeout(startRecording, 700); return; }
   try {
     state.asrState = "transcribing";
     els.voiceCaption.textContent = "Transcribing locally…";
@@ -482,7 +505,15 @@ function encodeWav(samples, sampleRate) {
   return buffer;
 }
 
-$("#newCourseButton").addEventListener("click", () => openCourseDialog());
+$("#newCourseButton").addEventListener("click", async () => {
+  if (window.lectureRecorderActive) { showToast("Finish recording before adding a course."); return; }
+  if (state?.activeSession) {
+    if (!await confirmAction("Create another course?", "Your current tutor session will end so you can start a new course.", "Continue")) return;
+    if (recording) await stopRecording(false);
+    state = await window.study.endSession(); render();
+  }
+  openCourseDialog();
+});
 els.accountButton.addEventListener("click", openAccountDialog);
 $("#closeAccountButton").addEventListener("click", () => els.accountDialog.close());
 $("#accountPrimaryButton").addEventListener("click", async () => {
@@ -519,8 +550,10 @@ $("#courseForm").addEventListener("submit", async (event) => {
 $("#deleteCourseButton").addEventListener("click", async () => {
   const course = state.courses.find((item) => item.id === editingCourseId);
   if (!course) return;
+  if (window.lectureRecorderActive) { showToast("Finish recording before deleting a course."); return; }
+  if (state.activeSession?.courseId === course.id) { showToast("End the tutor session before deleting this course."); return; }
   els.courseDialog.close();
-  const accepted = await confirmAction(`Delete ${course.name}?`, "Its copied course context, messages, and review queue will be removed. Session screenshots are moved into the local recovery archive.");
+  const accepted = await confirmAction(`Delete ${course.name}?`, "Its course context, messages, and review queue will be removed. Lecture recordings and session screenshots move to the local recovery archive.");
   if (!accepted) { openCourseDialog(course); return; }
   try { state = await window.study.deleteCourse(course.id); editingCourseId = null; render(); } catch (error) { showToast(error); }
 });
@@ -566,9 +599,9 @@ window.study.onVoiceState((value) => {
   state.voiceState = value;
   if (value === "speaking" && recording) stopRecording(false);
   updateVoiceUI();
-  if (value === "idle" && state.settings.handsFree && state.activeSession && state.tutorState !== "thinking") setTimeout(startRecording, 500);
+  if (value === "idle" && !window.lectureRecorderActive && state.settings.handsFree && state.activeSession && state.tutorState !== "thinking") setTimeout(startRecording, 500);
 });
 window.study.onVoiceError((value) => { state.voiceState = "error"; updateVoiceUI(); showToast(`Voice could not play: ${value}`); });
-window.study.onAsrState((value) => { state.asrState = value; updateVoiceUI(); });
+window.study.onAsrState((value) => { state.asrState = value; updateVoiceUI(); updateLectureProcessing(); });
 
 window.study.getState().then((value) => { state = value; render(); }).catch(showToast);
